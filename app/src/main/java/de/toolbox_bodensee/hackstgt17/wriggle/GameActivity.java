@@ -162,7 +162,7 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
         int textColor;
         if (isColorDark(color)) {
             textColor = Color.WHITE;
-        } else{
+        } else {
             textColor = Color.BLACK;
         }
         runOnUiThread(() -> statusTextView.setTextColor(textColor));

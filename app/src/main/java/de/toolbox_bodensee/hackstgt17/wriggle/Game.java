@@ -76,7 +76,7 @@ public class Game implements Subscriber {
         @Override
         public void run() {
             double rad = Math.toRadians(currentOrientation - orientationOffset);
-            Log.d("GAME", "Posting direction " + (-1 * rad) + " rad(" + (-1 * (currentOrientation - orientationOffset)) + "°) to server");
+            //Log.d("GAME", "Posting direction " + (-1 * rad) + " rad(" + (-1 * (currentOrientation - orientationOffset)) + "°) to server");
             try {
                 socket.emit("changeDirection", (-1 * rad));
             } catch (Exception e) {
