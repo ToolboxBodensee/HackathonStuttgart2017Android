@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="hackstgt17.toolbox_bodensee.de.wriggle.BLEScannerActivity">
+    tools:context="de.toolbox_bodensee.hackstgt17.wriggle.BLEScannerActivity">
 
     <fragment xmlns:tools="http://schemas.android.com/tools"
         android:id="@+id/scanner_fragment"

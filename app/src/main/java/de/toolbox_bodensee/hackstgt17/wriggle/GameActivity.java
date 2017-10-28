@@ -1,13 +1,15 @@
-package hackstgt17.toolbox_bodensee.de.wriggle;
+package de.toolbox_bodensee.hackstgt17.wriggle;
 
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.os.IBinder;
-import android.support.v7.app.AppCompatActivity;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.support.constraint.ConstraintLayout;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -29,18 +31,22 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
     private BluetoothDevice bluetoothDevice;
     private MetaWearBoard metaWearBoard;
     private Led led;
-    private SensorFusionBosch sensorFusionT;
+    private SensorFusionBosch sensorFusion;
 
     private Game game;
 
-    private Button buttonToggleGame;
+    private Button gameToggleButton;
+    private TextView statusTextView;
+    private ConstraintLayout gameScreen;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
-        buttonToggleGame = findViewById(R.id.buttonToggleGame);
+        gameToggleButton = findViewById(R.id.buttonToggleGame);
+        statusTextView = findViewById(R.id.textViewStatus);
+        gameScreen = findViewById(R.id.gameScreen);
 
         bluetoothDevice = getIntent().getParcelableExtra(BLEScannerActivity.BLUETOOTH_DEVICE_KEY);
 
@@ -78,24 +84,24 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
 
     void setupGame(MetaWearBoard metaWearBoard) {
         Log.d("GAMESETUP", "Configuring sensor fusion");
-        sensorFusionT = metaWearBoard.getModule(SensorFusionBosch.class);
-        final SensorFusionBosch sensorFusion = sensorFusionT;
+        sensorFusion = metaWearBoard.getModule(SensorFusionBosch.class);
+        final SensorFusionBosch sensorFusionF = sensorFusion;
         led = metaWearBoard.getModule(Led.class);
         led.editPattern(Led.Color.BLUE, Led.PatternPreset.PULSE).commit();
         led.play();
 
         Log.d("GAMESETUP", "Got Bosch sensor fusion");
-        sensorFusion.configure()
-                .mode(SensorFusionBosch.Mode.NDOF)
+        sensorFusionF.configure()
+                .mode(SensorFusionBosch.Mode.IMU_PLUS)
                 .accRange(SensorFusionBosch.AccRange.AR_2G)
                 .gyroRange(SensorFusionBosch.GyroRange.GR_250DPS)
                 .commit();
         Log.d("GAMESETUP", "Initializing sensor data stream");
         Log.d("GAMESETUP", "Starting game");
-        sensorFusion.eulerAngles().addRouteAsync(source -> source.limit(33).stream(game))
+        sensorFusionF.eulerAngles().addRouteAsync(source -> source.limit(33).stream(game))
                 .continueWith((Continuation<Route, Void>) ignored -> {
-                    sensorFusion.eulerAngles().start();
-                    sensorFusion.start();
+                    sensorFusionF.eulerAngles().start();
+                    sensorFusionF.start();
                     Log.d("GAMESETUP", "Initialized game");
                     game.start();
                     return null;
@@ -105,10 +111,12 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
     public void onClickGameToggle(View view) {
         if (!game.isRunning()) {
             game.start();
-            buttonToggleGame.setText("Pause Game");
+            gameToggleButton.setText("Pause Game");
+
         } else {
             game.stop();
-            buttonToggleGame.setText("Start Game");
+            gameToggleButton.setText("Start Game");
+            statusTextView.setText("wait...");
         }
     }
 
@@ -121,8 +129,8 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
         if (led != null) {
             led.stop(true);
         }
-        if (sensorFusionT != null) {
-            sensorFusionT.stop();
+        if (sensorFusion != null) {
+            sensorFusion.stop();
         }
         game.stop();
         try {
@@ -151,11 +159,15 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
 
     @Override
     public void gameStarting(int color, String name) {
-
-        View v = findViewById(R.id.gameScreen);
-        runOnUiThread(() -> v.setBackgroundColor(color));
-
-        ((TextView) findViewById(R.id.textViewStatus)).setText("Go, " + name + "!");
+        int textColor;
+        if (isColorDark(color)) {
+            textColor = Color.WHITE;
+        } else{
+            textColor = Color.BLACK;
+        }
+        runOnUiThread(() -> statusTextView.setTextColor(textColor));
+        runOnUiThread(() -> gameScreen.setBackgroundColor(color));
+        runOnUiThread(() -> statusTextView.setText("Go, " + name + "!"));
     }
 
     @Override
@@ -180,5 +192,14 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
                     }
                     return Task.forResult(null);
                 });
+    }
+
+    public boolean isColorDark(int color) {
+        double darkness = 1 - (0.299 * Color.red(color) + 0.587 * Color.green(color) + 0.114 * Color.blue(color)) / 255;
+        if (darkness < 0.5) {
+            return false; // It's a light color
+        } else {
+            return true; // It's a dark color
+        }
     }
 }

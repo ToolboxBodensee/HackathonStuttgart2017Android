@@ -1,4 +1,4 @@
-package hackstgt17.toolbox_bodensee.de.wriggle;
+package de.toolbox_bodensee.hackstgt17.wriggle;
 
 import android.graphics.Color;
 import android.util.Log;
@@ -38,8 +38,6 @@ public class Game implements Subscriber {
     private int color;
     private String name;
 
-    //TODO connection success
-
     public Game(GameListener gameListener, String playerName) {
 
         this.gameListener = gameListener;
@@ -61,8 +59,6 @@ public class Game implements Subscriber {
     }
 
     private Emitter.Listener connectionSuccess = args -> {
-        //String colorHexString = (String) args[0];
-
         JSONObject data = (JSONObject) args[0];
         try {
             color = Color.parseColor(data.getString("color"));
@@ -72,7 +68,7 @@ public class Game implements Subscriber {
         }
     };
 
-    public void calibrate() {
+    void calibrate() {
         orientationOffset = currentOrientation;
     }
 
@@ -89,14 +85,14 @@ public class Game implements Subscriber {
         }
     };
 
-    public void start() {
+    void start() {
         running = true;
         socket.connect();
         networkLoopFuture = networkLoopExecutor.scheduleAtFixedRate(postDirection, 0, 100, TimeUnit.MILLISECONDS);
         Log.d("GAME", "Started");
     }
 
-    public void stop() {
+    void stop() {
         running = false;
         socket.disconnect();
         if (networkLoopFuture != null) {
@@ -104,15 +100,12 @@ public class Game implements Subscriber {
         }
     }
 
-    public boolean isRunning() {
+    boolean isRunning() {
         return running;
     }
 
     /**
      * Receives rotation sensor data
-     *
-     * @param data
-     * @param env
      */
     @Override
     public void apply(Data data, Object... env) {

@@ -5,7 +5,7 @@
     android:id="@+id/gameScreen"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="hackstgt17.toolbox_bodensee.de.wriggle.GameActivity">
+    tools:context="de.toolbox_bodensee.hackstgt17.wriggle.GameActivity">
 
     <Button
         android:id="@+id/buttonToggleGame"

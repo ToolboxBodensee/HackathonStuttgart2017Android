@@ -1,4 +1,4 @@
-package hackstgt17.toolbox_bodensee.de.wriggle;
+package de.toolbox_bodensee.hackstgt17.wriggle;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
