@@ -4,10 +4,15 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
 
 import com.mbientlab.bletoolbox.scanner.BleScannerFragment;
 
 import java.util.UUID;
+
+/**
+ * @author ottojo0802
+ */
 
 public class BLEScannerActivity extends AppCompatActivity implements BleScannerFragment.ScannerCommunicationBus {
 
@@ -34,6 +39,11 @@ public class BLEScannerActivity extends AppCompatActivity implements BleScannerF
     public void onDeviceSelected(BluetoothDevice device) {
         Intent intent = new Intent(this, GameSetupActivity.class);
         intent.putExtra(BLUETOOTH_DEVICE_KEY, device);
+        startActivity(intent);
+    }
+
+    public void onClickSettings(View view){
+        Intent intent = new Intent(this, SettingsActivity.class);
         startActivity(intent);
     }
 }

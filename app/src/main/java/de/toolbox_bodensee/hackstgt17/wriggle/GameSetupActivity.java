@@ -7,6 +7,10 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.EditText;
 
+/**
+ * @author ottojo0802
+ */
+
 public class GameSetupActivity extends AppCompatActivity {
 
     public static final String PLAYER_NAME_KEY = "playerName";

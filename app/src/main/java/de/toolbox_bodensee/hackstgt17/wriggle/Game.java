@@ -22,13 +22,13 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
- * Created by Jonas on 28.10.2017.
+ * @author ottojo0802
  */
 
 public class Game implements Subscriber {
 
     private boolean running = false;
-    private static final String URL = "http://wriggle-backend.herokuapp.com/";
+    private static String URL = "http://wriggle-backend.herokuapp.com/";
     private Socket socket;
     private float currentOrientation = 0;
     private float orientationOffset = 0;
@@ -38,10 +38,11 @@ public class Game implements Subscriber {
     private int color;
     private String name;
 
-    public Game(GameListener gameListener, String playerName) {
+    public Game(GameListener gameListener, String playerName, String server) {
 
         this.gameListener = gameListener;
         this.name = playerName;
+        this.URL = server;
 
         try {
             IO.Options options = new IO.Options();
@@ -89,15 +90,18 @@ public class Game implements Subscriber {
         running = true;
         socket.connect();
         networkLoopFuture = networkLoopExecutor.scheduleAtFixedRate(postDirection, 0, 100, TimeUnit.MILLISECONDS);
-        Log.d("GAME", "Started");
+        Log.d("GAME", "Game started, player " + name);
     }
 
     void stop() {
         running = false;
-        socket.disconnect();
+        if (socket != null) {
+            socket.disconnect();
+        }
         if (networkLoopFuture != null) {
             networkLoopFuture.cancel(false);
         }
+        Log.d("GAME", "Game stopped, player " + name);
     }
 
     boolean isRunning() {

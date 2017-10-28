@@ -5,9 +5,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.support.constraint.ConstraintLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -26,7 +28,12 @@ import com.mbientlab.metawear.module.Settings;
 import bolts.Continuation;
 import bolts.Task;
 
+/**
+ * @author ottojo0802
+ */
+
 public class GameActivity extends AppCompatActivity implements ServiceConnection, Game.GameListener {
+
 
     private BluetoothDevice bluetoothDevice;
     private MetaWearBoard metaWearBoard;
@@ -50,7 +57,10 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
 
         bluetoothDevice = getIntent().getParcelableExtra(BLEScannerActivity.BLUETOOTH_DEVICE_KEY);
 
-        game = new Game(this, getIntent().getStringExtra(GameSetupActivity.PLAYER_NAME_KEY));
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        String server = prefs.getString(SettingsActivity.SHAREDPREFS_SERVER, "https://wriggle-backend.herokuapp.com/");
+
+        game = new Game(this, getIntent().getStringExtra(GameSetupActivity.PLAYER_NAME_KEY), server);
 
         ///< Bind the service when the activity is created
         getApplicationContext().bindService(new Intent(this, BtleService.class),
@@ -133,11 +143,9 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
             sensorFusion.stop();
         }
         game.stop();
-        try {
-            metaWearBoard.disconnectAsync().waitForCompletion();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+
+        metaWearBoard.disconnectAsync();
+
         ///< Unbind the service when the activity is destroyed
         getApplicationContext().unbindService(this);
         super.onDestroy();
@@ -147,12 +155,15 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
     public void onServiceDisconnected(ComponentName componentName) {
         game.stop();
         Toast.makeText(this, "Sensor disconnected.", Toast.LENGTH_SHORT).show();
+        finish();
     }
 
     @Override
     public void onDisconnect(String message) {
         Log.e("GameDisconnect", message);
-        game.stop();
+        if (game != null) {
+            game.stop();
+        }
         Toast.makeText(this, "Game disconnected.", Toast.LENGTH_LONG).show();
         finish();
     }
