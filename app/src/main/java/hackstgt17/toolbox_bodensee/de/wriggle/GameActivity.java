@@ -10,40 +10,41 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.Window;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mbientlab.metawear.MetaWearBoard;
 import com.mbientlab.metawear.Route;
 import com.mbientlab.metawear.android.BtleService;
 import com.mbientlab.metawear.module.Led;
-import com.mbientlab.metawear.module.NeoPixel;
 import com.mbientlab.metawear.module.SensorFusionBosch;
+import com.mbientlab.metawear.module.Settings;
 
 import bolts.Continuation;
+import bolts.Task;
 
-public class GameActivity extends AppCompatActivity implements ServiceConnection, Game.GameDisconnectListener {
+public class GameActivity extends AppCompatActivity implements ServiceConnection, Game.GameListener {
 
-    private BtleService.LocalBinder serviceBinder;
     private BluetoothDevice bluetoothDevice;
     private MetaWearBoard metaWearBoard;
+    private Led led;
+    private SensorFusionBosch sensorFusionT;
 
-    private Game game = new Game(this);
-    private boolean hardwareReady = false;
+    private Game game;
 
     private Button buttonToggleGame;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_game);
 
         buttonToggleGame = findViewById(R.id.buttonToggleGame);
 
         bluetoothDevice = getIntent().getParcelableExtra(BLEScannerActivity.BLUETOOTH_DEVICE_KEY);
-        game.setPlayerName(getIntent().getStringExtra(GameSetupActivity.PLAYER_NAME_KEY));
+
+        game = new Game(this, getIntent().getStringExtra(GameSetupActivity.PLAYER_NAME_KEY));
 
         ///< Bind the service when the activity is created
         getApplicationContext().bindService(new Intent(this, BtleService.class),
@@ -54,29 +55,36 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
     @Override
     public void onServiceConnected(ComponentName name, IBinder service) {
         ///< Typecast the binder to the service's LocalBinder class
-        serviceBinder = (BtleService.LocalBinder) service;
+        BtleService.LocalBinder serviceBinder = (BtleService.LocalBinder) service;
         metaWearBoard = serviceBinder.getMetaWearBoard(bluetoothDevice);
 
         //Connect to Board
-        metaWearBoard.connectAsync()
-                .continueWith(task -> {
-                    //After connecting, start game
-                    if (!task.isCancelled()) {
-                        setupGame(metaWearBoard);
-                    }
-                    return null;
-                });
+        metaWearBoard.connectAsync().continueWithTask(task -> {
+            if (task.isCancelled()) {
+                return task;
+            }
+            return task.isFaulted() ? reconnect(metaWearBoard) : task;
+        }).continueWith(task -> {
+            //After connecting, start game
+            if (!task.isCancelled()) {
+                metaWearBoard.getModule(Settings.class).editBleConnParams()
+                        .maxConnectionInterval(11.25f)
+                        .commit();
+                setupGame(metaWearBoard);
+            }
+            return null;
+        }, Task.UI_THREAD_EXECUTOR);
     }
 
     void setupGame(MetaWearBoard metaWearBoard) {
         Log.d("GAMESETUP", "Configuring sensor fusion");
-        final SensorFusionBosch sensorFusion = metaWearBoard.getModule(SensorFusionBosch.class);
-        Led led = metaWearBoard.getModule(Led.class);
-        led.editPattern(Led.Color.BLUE, Led.PatternPreset.PULSE).commit(); //TODO LED*/
+        sensorFusionT = metaWearBoard.getModule(SensorFusionBosch.class);
+        final SensorFusionBosch sensorFusion = sensorFusionT;
+        led = metaWearBoard.getModule(Led.class);
+        led.editPattern(Led.Color.BLUE, Led.PatternPreset.PULSE).commit();
         led.play();
 
         Log.d("GAMESETUP", "Got Bosch sensor fusion");
-        //TODO Hangs here sometimes
         sensorFusion.configure()
                 .mode(SensorFusionBosch.Mode.NDOF)
                 .accRange(SensorFusionBosch.AccRange.AR_2G)
@@ -88,40 +96,43 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
                 .continueWith((Continuation<Route, Void>) ignored -> {
                     sensorFusion.eulerAngles().start();
                     sensorFusion.start();
+                    Log.d("GAMESETUP", "Initialized game");
+                    game.start();
                     return null;
                 });
-        Log.d("GAMESETUP", "Initialized game");
-
-        hardwareReady = true;
     }
 
     public void onClickGameToggle(View view) {
-        if (hardwareReady) {
-            if (!game.isRunning()) {
-                game.start();
-                buttonToggleGame.setText("Pause Game");
-            } else {
-                game.stop();
-                buttonToggleGame.setText("Start Game");
-            }
+        if (!game.isRunning()) {
+            game.start();
+            buttonToggleGame.setText("Pause Game");
         } else {
-            Toast.makeText(this, "Hardware not ready yet.", Toast.LENGTH_SHORT).show();
+            game.stop();
+            buttonToggleGame.setText("Start Game");
         }
     }
 
-    public void onClickCalibrate(View view){
-
+    public void onClickCalibrate(View view) {
+        game.calibrate();
     }
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
+        if (led != null) {
+            led.stop(true);
+        }
+        if (sensorFusionT != null) {
+            sensorFusionT.stop();
+        }
         game.stop();
-        Led led = metaWearBoard.getModule(Led.class);
-        led.stop(true);
-        metaWearBoard.disconnectAsync();
+        try {
+            metaWearBoard.disconnectAsync().waitForCompletion();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         ///< Unbind the service when the activity is destroyed
         getApplicationContext().unbindService(this);
+        super.onDestroy();
     }
 
     @Override
@@ -132,8 +143,19 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
 
     @Override
     public void onDisconnect(String message) {
+        Log.e("GameDisconnect", message);
         game.stop();
+        Toast.makeText(this, "Game disconnected.", Toast.LENGTH_LONG).show();
         finish();
+    }
+
+    @Override
+    public void gameStarting(int color, String name) {
+
+        View v = findViewById(R.id.gameScreen);
+        runOnUiThread(() -> v.setBackgroundColor(color));
+
+        ((TextView) findViewById(R.id.textViewStatus)).setText("Go, " + name + "!");
     }
 
     @Override
@@ -146,5 +168,17 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
     protected void onPause() {
         super.onPause();
         finish();
+    }
+
+    public static Task<Void> reconnect(final MetaWearBoard board) {
+        return board.connectAsync()
+                .continueWithTask(task -> {
+                    if (task.isFaulted()) {
+                        return reconnect(board);
+                    } else if (task.isCancelled()) {
+                        return task;
+                    }
+                    return Task.forResult(null);
+                });
     }
 }
