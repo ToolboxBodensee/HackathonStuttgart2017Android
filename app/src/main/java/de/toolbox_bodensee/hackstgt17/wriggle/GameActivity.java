@@ -97,8 +97,6 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
         sensorFusion = metaWearBoard.getModule(SensorFusionBosch.class);
         final SensorFusionBosch sensorFusionF = sensorFusion;
         led = metaWearBoard.getModule(Led.class);
-        led.editPattern(Led.Color.BLUE, Led.PatternPreset.PULSE).commit();
-        led.play();
 
         Log.d("GAMESETUP", "Got Bosch sensor fusion");
         sensorFusionF.configure()
@@ -125,6 +123,9 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
 
         } else {
             game.stop();
+            if (led != null) {
+                led.stop(false);
+            }
             gameToggleButton.setText("Start Game");
             statusTextView.setText("wait...");
         }
@@ -179,6 +180,16 @@ public class GameActivity extends AppCompatActivity implements ServiceConnection
         runOnUiThread(() -> statusTextView.setTextColor(textColor));
         runOnUiThread(() -> gameScreen.setBackgroundColor(color));
         runOnUiThread(() -> statusTextView.setText("Go, " + name + "!"));
+        if (led != null) {
+            led.stop(true);
+            byte red = (byte) (Color.red(color) * (31.0/255.0));
+            byte green = (byte) (Color.green(color) * (31.0/255.0));
+            byte blue = (byte) (Color.blue(color) * (31.0/255.0));
+            led.editPattern(Led.Color.RED, Led.PatternPreset.SOLID).highIntensity(red).lowIntensity(red).commit();
+            led.editPattern(Led.Color.GREEN, Led.PatternPreset.SOLID).highIntensity(green).lowIntensity(green).commit();
+            led.editPattern(Led.Color.BLUE, Led.PatternPreset.SOLID).highIntensity(blue).lowIntensity(blue).commit();
+            led.play();
+        }
     }
 
     @Override
